@@ -2,8 +2,8 @@ name: Auto Reading Bot
 
 on:
   # 定时触发 - Fork 后如需自动定时运行，请取消下方 schedule 注释
-  # schedule:
-  #   - cron: '0 0 * * *'    # UTC 00:00 = 北京时间 08:00
+  schedule:
+     - cron: '0 0 * * *'    # UTC 00:00 = 北京时间 08:00
   #   - cron: '0 12 * * *'   # UTC 12:00 = 北京时间 20:00
   
   # 拉取请求触发，用于测试阅读
@@ -21,7 +21,7 @@ on:
       target_duration:
         description: '阅读时长（分钟，格式：10-20。留空时优先使用仓库 Secret TARGET_DURATION，否则默认 1-2）'
         required: false
-        default: ''
+        default: '45-65'
         type: string
       reading_mode:
         description: '阅读模式'
@@ -71,24 +71,19 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-
     - name: Resolve runtime parameters
       env:
         INPUT_TARGET_DURATION: ${{ github.event.inputs.target_duration }}
         SECRET_TARGET_DURATION: ${{ secrets.TARGET_DURATION }}
       run: |
         target_duration="${INPUT_TARGET_DURATION}"
-
         if [ -z "$target_duration" ]; then
           target_duration="${SECRET_TARGET_DURATION}"
         fi
-
         if [ -z "$target_duration" ]; then
           target_duration="1-2"
         fi
-
         echo "TARGET_DURATION=$target_duration" >> "$GITHUB_ENV"
-
     - name: Create config file
       run: |
         cat > config.yaml <<EOF
@@ -96,7 +91,6 @@ jobs:
           name: "WeReadBot-GitHub-Action"
           startup_mode: "immediate"
           startup_delay: "1-2"
-
         reading:
           mode: "${{ github.event.inputs.reading_mode || 'smart_random' }}"
           # 目标阅读时长（分钟），支持区间随机，格式如："1" 或 "1-2"
@@ -108,20 +102,17 @@ jobs:
             book_continuity: 0.8
             chapter_continuity: 0.7
             book_switch_cooldown: 3600
-
         human_simulation:
           enabled: false
           reading_speed_variation: true
           break_probability: 0.15
           break_duration: "10-20"
           rotate_user_agent: false
-
         network:
           timeout: 30
           retry_times: 3
           retry_delay: "5-15"
           rate_limit: 10
-
         notification:
           enabled: ${{ github.event.inputs.notify_enabled != 'false' }}
           include_statistics: true
@@ -132,7 +123,6 @@ jobs:
             session_failure: true
             runtime_error: true
             general: true
-
         logging:
           level: "INFO"
           format: "detailed"
@@ -140,14 +130,12 @@ jobs:
           max_size: "10MB"
           backup_count: 5
           console: true
-
         history:
           enabled: ${{ github.event.inputs.history_enabled != 'false' }}
           file: "logs/run-history.json"
           max_entries: ${{ github.event.inputs.history_max_entries || '50' }}
           persist_runtime_error: true
         EOF
-
     - name: Create logs directory
       run: mkdir -p logs
 
@@ -159,8 +147,6 @@ jobs:
         WEREAD_CURL_STRING: ${{ secrets.WEREAD_CURL_STRING }}
         # 多用户并发控制，未设置默认 1（顺序执行）
         MAX_CONCURRENT_USERS: ${{ secrets.MAX_CONCURRENT_USERS || 1 }}
-        # 单用户连续阅读失败上限，未设置时默认 5
-        MAX_CONSECUTIVE_FAILURES: ${{ secrets.MAX_CONSECUTIVE_FAILURES || 5 }}
         # 通知相关环境变量
         PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -213,7 +199,6 @@ jobs:
         
         # 运行阅读机器人
         python weread-bot.py --config config.yaml
-
     - name: Upload runtime artifacts
       if: always()
       uses: actions/upload-artifact@v4
